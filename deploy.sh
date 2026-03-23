@@ -4,17 +4,17 @@
 # ==========================================
 
 # 1. 필수 환경 변수 설정 (사용자 환경에 맞게 수정 필요)
-export PROJECT_ID="cdn-compliance"
+export PROJECT_ID="YOUR_GCP_PROJECT_ID"
 export REGION="asia-northeast3" # 서울 리전
 export REPO_NAME="newsletter-repo"
 export IMAGE_NAME="newsletter-generator"
 export JOB_NAME="newsletter-job"
-export SERVICE_ACCOUNT="10257057738-compute@developer.gserviceaccount.com"
+export SERVICE_ACCOUNT="YOUR_SERVICE_ACCOUNT_EMAIL"
 
 # API 키 및 GCS 버킷 (직접 입력 혹은 Secret Manager 사용 권장)
 export GEMINI_API_KEY="" # Using Secret Manager instead
 export GOOGLE_DOC_ID="" # Not provided
-export GCS_BUCKET_NAME="newsletter-output-cdn-compliance"
+export GCS_BUCKET_NAME="YOUR_GCS_BUCKET_NAME"
 
 echo "Deploying to Project: ${PROJECT_ID}"
 
