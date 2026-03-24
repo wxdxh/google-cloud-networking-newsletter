@@ -42,6 +42,9 @@ PRODUCT_CATEGORIES = {
     "📊 네트워크 운영 및 가시성 (Observability)": [
         "Network Intelligence Center",
         "Service Directory"
+    ],
+    "⚓ Kubernetes 네트워킹 (GKE)": [
+        "Google Kubernetes Engine"
     ]
 }
 
@@ -103,8 +106,22 @@ def fetch_recent_release_notes(start_date_str):
     query_job = client.query(query)
     results = query_job.result()
     
+    # GKE의 경우 노이즈(일반 패치 등)를 줄이기 위한 네트워킹 전용 키워드 리포지토리
+    GKE_NETWORKING_KEYWORDS = [
+        "ingress", "load balancer", "loadbalancer", "elb", "alb", 
+        "gateway", "mesh", "dns", "ip ", "vpc", "network", "subnet", 
+        "proxy", "firewall", "route", "service", "latency", "bandwidth"
+    ]
+
     notes_data = []
     for row in results:
+        desc_lower = row.description.lower()
+        
+        # GKE 제품군에 한해서만 텍스트 필터링 적용
+        if row.product_name == "Google Kubernetes Engine":
+            if not any(kw in desc_lower for kw in GKE_NETWORKING_KEYWORDS):
+                continue
+                
         notes_data.append({
             "published_at": row.published_at.strftime('%Y-%m-%d'),
             "product_name": row.product_name,
