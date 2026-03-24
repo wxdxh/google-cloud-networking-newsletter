@@ -28,6 +28,14 @@ PRODUCT_CATEGORIES = {
         "Cloud NAT",
         "Network Connectivity Center"
     ],
+    "⚓ Kubernetes 네트워킹 (GKE)": [
+        "Google Kubernetes Engine"
+    ],
+    "⚡ Serverless 네트워킹": [
+        "Cloud Run",
+        "Cloud Functions",
+        "App Engine"
+    ],
     "🚀 트래픽 라우팅 및 엣지 전송 (Delivery & Edge)": [
         "Cloud Load Balancing",
         "Cloud CDN",
@@ -42,14 +50,6 @@ PRODUCT_CATEGORIES = {
     "📊 네트워크 운영 및 가시성 (Observability)": [
         "Network Intelligence Center",
         "Service Directory"
-    ],
-    "⚓ Kubernetes 네트워킹 (GKE)": [
-        "Google Kubernetes Engine"
-    ],
-    "⚡ Serverless 네트워킹": [
-        "Cloud Run",
-        "Cloud Functions",
-        "App Engine"
     ]
 }
 
