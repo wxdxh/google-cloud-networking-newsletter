@@ -45,6 +45,11 @@ PRODUCT_CATEGORIES = {
     ],
     "⚓ Kubernetes 네트워킹 (GKE)": [
         "Google Kubernetes Engine"
+    ],
+    "⚡ Serverless 네트워킹": [
+        "Cloud Run",
+        "Cloud Functions",
+        "App Engine"
     ]
 }
 
@@ -106,20 +111,29 @@ def fetch_recent_release_notes(start_date_str):
     query_job = client.query(query)
     results = query_job.result()
     
-    # GKE의 경우 노이즈(일반 패치 등)를 줄이기 위한 네트워킹 전용 키워드 리포지토리
-    GKE_NETWORKING_KEYWORDS = [
-        "ingress", "load balancer", "loadbalancer", "elb", "alb", 
-        "gateway", "mesh", "dns", "ip ", "vpc", "network", "subnet", 
-        "proxy", "firewall", "route", "service", "latency", "bandwidth"
+    # 노이즈(네트워킹 이외의 패치 등)를 줄이기 위해 필터링을 적용할 제품군 리스트
+    FILTERABLE_PRODUCTS = [
+        "Google Kubernetes Engine", 
+        "Cloud Run", 
+        "Cloud Functions", 
+        "App Engine"
+    ]
+    
+    # 필터링용 통합 네트워킹 키워드 풀
+    NETWORKING_KEYWORDS = [
+        "ingress", "load balancer", "loadbalancer", "gateway", "mesh", "dns", 
+        "ip ", "vpc", "network", "subnet", "proxy", "firewall", "route", 
+        "service", "latency", "bandwidth", "connector", "egress", 
+        "direct vpc", "private service connect"
     ]
 
     notes_data = []
     for row in results:
         desc_lower = row.description.lower()
         
-        # GKE 제품군에 한해서만 텍스트 필터링 적용
-        if row.product_name == "Google Kubernetes Engine":
-            if not any(kw in desc_lower for kw in GKE_NETWORKING_KEYWORDS):
+        # 필터링 대상 제품군에 한해서만 텍스트 키워드 필터링 적용
+        if row.product_name in FILTERABLE_PRODUCTS:
+            if not any(kw in desc_lower for kw in NETWORKING_KEYWORDS):
                 continue
                 
         notes_data.append({
