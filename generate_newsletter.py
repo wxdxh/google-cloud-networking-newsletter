@@ -145,8 +145,8 @@ def fetch_recent_release_notes(start_date_str, end_date_str="2026-05-01"):
     return notes_data
 
 def fetch_blog_posts(start_date_str, end_date_str="2026-05-01"):
-    """Fetches blog posts from the official RSS feed and filters by date."""
-    RSS_URL = "https://cloudblog.withgoogle.com/rss"
+    """Fetches blog posts from the Networking-category RSS feed and filters by date."""
+    RSS_URL = "https://cloudblog.withgoogle.com/products/networking/rss/"
     print(f"Fetching blog posts from {RSS_URL}...")
     feed = feedparser.parse(RSS_URL)
     
