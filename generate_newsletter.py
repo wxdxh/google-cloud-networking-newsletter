@@ -158,27 +158,22 @@ def fetch_blog_posts(start_date_str, end_date_str="2026-05-01"):
         if hasattr(entry, 'published_parsed') and entry.published_parsed:
             pub_date = datetime.date(entry.published_parsed.tm_year, entry.published_parsed.tm_mon, entry.published_parsed.tm_mday)
             if start_date <= pub_date < end_date:
-                # 기존 네트워크 뉴스레터의 서브아젠다 기준 키워드로 필터링 (분류 태그 포함)
-                desc_lower = entry.description.lower()
-                title_lower = entry.title.lower()
-                
-                # Extract categories if available
-                categories = [c.term.lower() for c in entry.categories] if hasattr(entry, 'categories') else []
+                # feedparser 6.x exposes <category> elements via entry.tags as dicts
+                # (entry.categories returns (scheme, term) tuples without a .term attr).
+                categories = [t.get('term', '').lower() for t in entry.get('tags', []) or []]
 
                 # Safety net: feed URL is already category-scoped, but require an explicit
                 # 'networking' tag so any future feed change can't leak unrelated posts.
                 if not any('networking' in c for c in categories):
                     continue
 
-                content_to_check = title_lower + " " + desc_lower + " " + " ".join(categories)
-
-                if any(kw in content_to_check for kw in NETWORKING_KEYWORDS):
-                    blog_data.append({
-                        "title": entry.title,
-                        "description": entry.description,
-                        "link": entry.link,
-                        "published_at": pub_date.strftime('%Y-%m-%d')
-                    })
+                blog_data.append({
+                    "title": entry.title,
+                    "description": entry.description,
+                    "link": entry.link,
+                    "published_at": pub_date.strftime('%Y-%m-%d')
+                })
+    print(f"Blog feed: {len(feed.entries)} entries fetched, {len(blog_data)} kept after date+category filter.")
     return blog_data
 
 def summarize_blog_post(client, title, description):
