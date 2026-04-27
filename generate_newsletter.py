@@ -164,9 +164,14 @@ def fetch_blog_posts(start_date_str, end_date_str="2026-05-01"):
                 
                 # Extract categories if available
                 categories = [c.term.lower() for c in entry.categories] if hasattr(entry, 'categories') else []
-                
+
+                # Safety net: feed URL is already category-scoped, but require an explicit
+                # 'networking' tag so any future feed change can't leak unrelated posts.
+                if not any('networking' in c for c in categories):
+                    continue
+
                 content_to_check = title_lower + " " + desc_lower + " " + " ".join(categories)
-                
+
                 if any(kw in content_to_check for kw in NETWORKING_KEYWORDS):
                     blog_data.append({
                         "title": entry.title,
