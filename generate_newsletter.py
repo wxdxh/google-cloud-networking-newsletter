@@ -307,13 +307,13 @@ def verify_newsletter(client, content):
             config=types.GenerateContentConfig(temperature=0.1)
         )
         result = response.text
-        print(f"Verification Result:\\n{result}")
-        
-        if "PASS" in result.split('\\n')[0]:
+        print(f"Verification Result:\n{result}")
+
+        if "PASS" in result.split('\n')[0]:
             return True, ""
         else:
             reason = ""
-            for line in result.split('\\n'):
+            for line in result.split('\n'):
                 if "이유:" in line:
                     reason = line.split("이유:")[1].strip()
             return False, reason
@@ -371,7 +371,7 @@ def main():
                     print("Retrying generation...")
                 else:
                     print("Max attempts reached. Proceeding with caution.")
-                    newsletter_content = f"⚠️ [VERIFICATION FAILED: {reason}]\\n\\n" + newsletter_content
+                    newsletter_content = f"⚠️ [VERIFICATION FAILED: {reason}]\n\n" + newsletter_content
 
         # 4. Output processing
         if GCS_BUCKET_NAME:
