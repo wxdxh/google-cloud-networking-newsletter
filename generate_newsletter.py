@@ -57,12 +57,28 @@ NETWORKING_PRODUCTS = [
     product for category_list in PRODUCT_CATEGORIES.values() for product in category_list
 ]
 
-# 필터링용 통합 네트워킹 키워드 풀
+# 네트워킹 강신호 키워드 — Cloud Run/GKE/Functions/App Engine 릴리스 노트의
+# 일반적인 컴퓨트/스토리지 업데이트와 구분하기 위해 의도적으로 좁게 유지.
+# "service", "route", "network", "gateway" 등 단독으로는 너무 일반적이라 제외
+# (false positive 사례: "Cloud Run Ephemeral Disk", "NVIDIA GPU support" 등이 통과).
 NETWORKING_KEYWORDS = [
-    "ingress", "load balancer", "loadbalancer", "gateway", "mesh", "dns", 
-    "ip ", "vpc", "network", "subnet", "proxy", "firewall", "route", 
-    "service", "latency", "bandwidth", "connector", "egress", 
-    "direct vpc", "private service connect"
+    "ingress", "egress",
+    "load balancer", "loadbalancer",
+    "vpc", "subnet", "firewall",
+    "dns", "cdn", "vpn", "interconnect",
+    "cloud armor", "cloud nat",
+    "service mesh", "service connect", "private service connect",
+    "vpc connector", "direct vpc",
+    "network policy", "gateway api",
+    "tls certificate", "ssl certificate",
+]
+
+# 강배제 키워드 — FILTERABLE_PRODUCTS에 한해 description에 아래 단어가 있으면
+# 네트워킹 키워드 매칭 여부와 무관하게 제외 (스토리지/컴퓨트 업데이트 차단).
+NETWORKING_EXCLUSION_KEYWORDS = [
+    "gpu", "tpu",
+    "ephemeral disk", "persistent disk", "volume mount", "storage class",
+    "cpu allocation", "memory limit", "memory size",
 ]
 
 def read_google_doc(doc_id):
@@ -133,6 +149,8 @@ def fetch_recent_release_notes(start_date_str, end_date_str="2026-05-01"):
 
         # 필터링 대상 제품군에 한해서만 텍스트 키워드 필터링 적용
         if row.product_name in FILTERABLE_PRODUCTS:
+            if any(ex in desc_lower for ex in NETWORKING_EXCLUSION_KEYWORDS):
+                continue
             if not any(kw in desc_lower for kw in NETWORKING_KEYWORDS):
                 continue
 
@@ -158,27 +176,22 @@ def fetch_blog_posts(start_date_str, end_date_str="2026-05-01"):
         if hasattr(entry, 'published_parsed') and entry.published_parsed:
             pub_date = datetime.date(entry.published_parsed.tm_year, entry.published_parsed.tm_mon, entry.published_parsed.tm_mday)
             if start_date <= pub_date < end_date:
-                # 기존 네트워크 뉴스레터의 서브아젠다 기준 키워드로 필터링 (분류 태그 포함)
-                desc_lower = entry.description.lower()
-                title_lower = entry.title.lower()
-                
-                # Extract categories if available
-                categories = [c.term.lower() for c in entry.categories] if hasattr(entry, 'categories') else []
+                # feedparser 6.x exposes <category> elements via entry.tags as dicts
+                # (entry.categories returns (scheme, term) tuples without a .term attr).
+                categories = [t.get('term', '').lower() for t in entry.get('tags', []) or []]
 
                 # Safety net: feed URL is already category-scoped, but require an explicit
                 # 'networking' tag so any future feed change can't leak unrelated posts.
                 if not any('networking' in c for c in categories):
                     continue
 
-                content_to_check = title_lower + " " + desc_lower + " " + " ".join(categories)
-
-                if any(kw in content_to_check for kw in NETWORKING_KEYWORDS):
-                    blog_data.append({
-                        "title": entry.title,
-                        "description": entry.description,
-                        "link": entry.link,
-                        "published_at": pub_date.strftime('%Y-%m-%d')
-                    })
+                blog_data.append({
+                    "title": entry.title,
+                    "description": entry.description,
+                    "link": entry.link,
+                    "published_at": pub_date.strftime('%Y-%m-%d')
+                })
+    print(f"Blog feed: {len(feed.entries)} entries fetched, {len(blog_data)} kept after date+category filter.")
     return blog_data
 
 def summarize_blog_post(client, title, description):
@@ -294,13 +307,13 @@ def verify_newsletter(client, content):
             config=types.GenerateContentConfig(temperature=0.1)
         )
         result = response.text
-        print(f"Verification Result:\\n{result}")
-        
-        if "PASS" in result.split('\\n')[0]:
+        print(f"Verification Result:\n{result}")
+
+        if "PASS" in result.split('\n')[0]:
             return True, ""
         else:
             reason = ""
-            for line in result.split('\\n'):
+            for line in result.split('\n'):
                 if "이유:" in line:
                     reason = line.split("이유:")[1].strip()
             return False, reason
@@ -358,7 +371,7 @@ def main():
                     print("Retrying generation...")
                 else:
                     print("Max attempts reached. Proceeding with caution.")
-                    newsletter_content = f"⚠️ [VERIFICATION FAILED: {reason}]\\n\\n" + newsletter_content
+                    newsletter_content = f"⚠️ [VERIFICATION FAILED: {reason}]\n\n" + newsletter_content
 
         # 4. Output processing
         if GCS_BUCKET_NAME:
