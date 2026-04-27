@@ -57,12 +57,28 @@ NETWORKING_PRODUCTS = [
     product for category_list in PRODUCT_CATEGORIES.values() for product in category_list
 ]
 
-# 필터링용 통합 네트워킹 키워드 풀
+# 네트워킹 강신호 키워드 — Cloud Run/GKE/Functions/App Engine 릴리스 노트의
+# 일반적인 컴퓨트/스토리지 업데이트와 구분하기 위해 의도적으로 좁게 유지.
+# "service", "route", "network", "gateway" 등 단독으로는 너무 일반적이라 제외
+# (false positive 사례: "Cloud Run Ephemeral Disk", "NVIDIA GPU support" 등이 통과).
 NETWORKING_KEYWORDS = [
-    "ingress", "load balancer", "loadbalancer", "gateway", "mesh", "dns", 
-    "ip ", "vpc", "network", "subnet", "proxy", "firewall", "route", 
-    "service", "latency", "bandwidth", "connector", "egress", 
-    "direct vpc", "private service connect"
+    "ingress", "egress",
+    "load balancer", "loadbalancer",
+    "vpc", "subnet", "firewall",
+    "dns", "cdn", "vpn", "interconnect",
+    "cloud armor", "cloud nat",
+    "service mesh", "service connect", "private service connect",
+    "vpc connector", "direct vpc",
+    "network policy", "gateway api",
+    "tls certificate", "ssl certificate",
+]
+
+# 강배제 키워드 — FILTERABLE_PRODUCTS에 한해 description에 아래 단어가 있으면
+# 네트워킹 키워드 매칭 여부와 무관하게 제외 (스토리지/컴퓨트 업데이트 차단).
+NETWORKING_EXCLUSION_KEYWORDS = [
+    "gpu", "tpu",
+    "ephemeral disk", "persistent disk", "volume mount", "storage class",
+    "cpu allocation", "memory limit", "memory size",
 ]
 
 def read_google_doc(doc_id):
@@ -133,6 +149,8 @@ def fetch_recent_release_notes(start_date_str, end_date_str="2026-05-01"):
 
         # 필터링 대상 제품군에 한해서만 텍스트 키워드 필터링 적용
         if row.product_name in FILTERABLE_PRODUCTS:
+            if any(ex in desc_lower for ex in NETWORKING_EXCLUSION_KEYWORDS):
+                continue
             if not any(kw in desc_lower for kw in NETWORKING_KEYWORDS):
                 continue
 
