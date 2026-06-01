@@ -45,7 +45,8 @@ PRODUCT_CATEGORIES = {
         "Google Cloud Armor",
         "Cloud NGFW", 
         "Cloud IDS",
-        "Identity-Aware Proxy"
+        "Identity-Aware Proxy",
+        "Gemini Enterprise Agent Platform"
     ],
     "📊 네트워크 운영 및 가시성 (Observability)": [
         "Network Intelligence Center",
@@ -71,6 +72,7 @@ NETWORKING_KEYWORDS = [
     "vpc connector", "direct vpc",
     "network policy", "gateway api",
     "tls certificate", "ssl certificate",
+    "agent gateway", "agent identity", "mcp server", "mcp tool", "mcp connectivity",
 ]
 
 # 강배제 키워드 — FILTERABLE_PRODUCTS에 한해 description에 아래 단어가 있으면
@@ -140,7 +142,8 @@ def fetch_recent_release_notes(start_date_str, end_date_str="2026-05-01"):
         "Google Kubernetes Engine", 
         "Cloud Run", 
         "Cloud Functions", 
-        "App Engine"
+        "App Engine",
+        "Gemini Enterprise Agent Platform"
     ]
 
     notes_data = []
@@ -323,10 +326,10 @@ def verify_newsletter(client, content):
 
 def main():
     try:
-        start_date_str = "2026-04-01" 
-        end_date_str = "2026-05-01"
+        start_date_str = "2026-05-01" 
+        end_date_str = "2026-06-01"
         now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        output_filename = f"networking_newsletter_2026_April_{now_str}.md"
+        output_filename = f"networking_newsletter_2026_May_{now_str}.md"
 
         # 1. Fetch BigQuery Release Notes
         notes_data = fetch_recent_release_notes(start_date_str, end_date_str)
