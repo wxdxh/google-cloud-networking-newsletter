@@ -7,6 +7,9 @@ from google import genai
 from google.genai import types
 from googleapiclient.discovery import build
 import feedparser
+import urllib.request
+import urllib.error
+import re
 
 # ==========================================
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "YOUR_GCP_PROJECT_ID")
@@ -46,8 +49,11 @@ PRODUCT_CATEGORIES = {
         "Cloud NGFW", 
         "Cloud IDS",
         "Identity-Aware Proxy",
-        "Gemini Enterprise Agent Platform",
         "Secure Web Proxy"
+    ],
+    "🤖 AI 및 Agent 네트워크 인프라 (AI & Agent Infrastructure)": [
+        "Gemini Enterprise Agent Platform",
+        "Agent Registry"
     ],
     "📊 네트워크 운영 및 가시성 (Observability)": [
         "Network Intelligence Center",
@@ -84,6 +90,47 @@ NETWORKING_EXCLUSION_KEYWORDS = [
     "ephemeral disk", "persistent disk", "volume mount", "storage class",
     "cpu allocation", "memory limit", "memory size",
 ]
+
+def validate_url(url):
+    """Checks if the given URL returns a 200 OK or redirects successfully.
+    Returns True if valid, False if broken (404, 403, etc.).
+    """
+    # Ignore dummy placeholders
+    if "demo-" in url or "example.com" in url or "watch?v=demo" in url or "files/networking" in url:
+        return False
+
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        req = urllib.request.Request(url, headers=headers)
+        # We use a short timeout
+        with urllib.request.urlopen(req, timeout=5) as response:
+            return response.status in (200, 301, 302)
+    except Exception as e:
+        print(f"URL Validation failed for {url}: {e}")
+        return False
+
+def clean_markdown_links(content):
+    """Finds all [text](url) patterns in markdown content and validates the URL.
+    If the URL is invalid/broken, it replaces it with plain text: 'text'.
+    """
+    # Match markdown link: [text](url)
+    link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    
+    cleaned_content = content
+    matches = link_pattern.findall(content)
+    
+    for text, url in matches:
+        # Don't validate absolute paths or non-http links
+        if not url.startswith("http"):
+            continue
+            
+        print(f"Validating link: {url} ...")
+        if not validate_url(url):
+            print(f"⚠️ Invalid/Broken link found: {url}. Converting to plain text.")
+            # Replace [text](url) with plain text "text"
+            cleaned_content = cleaned_content.replace(f"[{text}]({url})", f"{text}")
+            
+    return cleaned_content
 
 def read_google_doc(doc_id):
     """Fetches text content from the specified Google Doc using Application Default Credentials."""
@@ -253,16 +300,19 @@ def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content="", 
     prompt = f"""
     아래 제공된 Google Cloud 제품군 릴리스 노트(영문) 및 '구글 문서(Google Docs)' 추가 참고 내용을 바탕으로, 조직 내부 공유용 'Google Cloud Networking Newsletter'를 마크다운 형식으로 작성해.
 
-## 절대 준수 사항 (톤앤매너 및 데이터 검증):
+    ## 절대 준수 사항 (톤앤매너 및 데이터 검증):
     - AI가 자동으로 생성한 느낌을 주는 과장된 수사, 상투적인 인사말은 전부 배제할 것.
     - 실제 클라우드 엔지니어가 팀원들에게 공유하는 건조하고 담백한 '테크니컬 리뷰' 스타일로 작성할 것.
     - [중요] 문서의 시작은 반드시 **"Google Cloud Networking 업데이트:"**라는 문구로 시작할 것.
     - [중요] '엔지니어 코멘트'나 주관적인 분석 섹션은 절대 포함하지 말 것.
+    - [중요] '우리 팀은 이를 참고하여', '활용할 수 있습니다', '참고하기 바랍니다', '도움이 될 것입니다' 등 독자나 엔지니어팀에게 조치나 활용을 권유하는 권유형/코멘트형 마무리를 절대 사용하지 말 것. 대신 순수 기술적 사실과 사실 관계(예: '...를 자동화하여 지연 시간을 최적화함', '...를 통해 트래픽 제어 효율을 개선함')만 담백하고 확실하게 종결형 어조로 전달할 것.
     - [중요] 제공된 원문 데이터의 'Date'(연도)를 반드시 더블체크하여 2026년 최신 데이터만 포함할 것.
+    - [중요] 도입부 및 문서 헤더에 정리 기간을 명확히 표기할 것 (예: "2026년 4월~5월 업데이트").
+    - [중요] 본문의 '각 세부 업데이트 항목'에 소개된 내용이 하단의 '공식 블로그 소식'이나 '추가 유용한 자료'의 블로그 포스트 내용과 중복되지 않도록 할 것. 동일한 기능 발표와 블로그 포스트가 동시에 존재한다면, 상세 릴리스 노트를 본문 카테고리에만 유지하고 하단 블로그 소식에는 중복 포스트를 배제할 것.
 
     ## 정보 구성 요구사항:
     1. **서두 요약 (Summary)**: 
-       - "Google Cloud Networking 업데이트:"로 시작하여 이번 분기의 핵심 업데이트(Connectivity, Delivery, Security, Observability 전 분야)를 3~4문장으로 건조하게 요약할 것.
+       - "Google Cloud Networking 업데이트:"로 시작하여 이번 기간 동안 본문에 포함될 모든 카테고리(네트워크 인프라, GKE 네트워킹, Serverless 네트워킹, 트래픽 라우팅, 네트워크 보안, AI 및 Agent 인프라, 네트워크 운영 전 분야)의 핵심 사항을 본문의 카테고리 구조와 완전히 매핑시켜 3~4문장으로 건조하게 요약할 것.
     2. 아래 제공된 [필수 대분류 그룹 규칙]을 완전히 준수하여 본문을 구성할 것.
 {category_context}
     3. **각 세부 업데이트 항목(단일 기능 릴리스) 구성**:
@@ -271,8 +321,10 @@ def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content="", 
        **[핵심 요약 제목]**
        - **적용 서비스**: {{특정 서비스 명칭}}
        - **업데이트 상세**: {{핵심 업데이트 또는 변경 사항을 날짜를 포함하여 1~2문장으로 요약}}
-       - **실무 활용**: {{팀을 위한 실무적 시사점 또는 필요한 조치 사항}}
+       - **실무 활용**: {{해당 업데이트가 제공하는 기술적 이점 및 사실을 명확하게 종결형 어조로 작성}}
        - **관련정보**: {{해당 업데이트 정보를 확인할 수 있는 URL 링크}}
+
+       - [중요] 하나의 업데이트 항목에는 반드시 **단일한 기능의 단일 릴리스(발표일 기준)**만 작성할 것. 서로 다른 날짜의 릴리스나 별개의 기술적 변경 사항(예: GKE 업그레이드 내의 다수 독립 기능들)을 하나의 항목으로 묶어서 뭉뚱그려 작성하지 말고, 각각 독립된 항목으로 분리하여 작성할 것.
 
     4. **공식 블로그 소식 (Blog Posts)**: 제공된 'Google Cloud 공식 블로그 요약 내역'을 바탕으로, 주요 기술 블로그 소식을 별도의 섹션으로 정리할 것. 각 글의 제목과 요약, 그리고 링크를 포함할 것.
 
@@ -290,8 +342,38 @@ def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content="", 
     )
     return response.text
 
+import re
+import urllib.request
+import urllib.error
+import urllib.parse
+
+def check_url_validity(url):
+    """Validates if a URL is active and returns 200. Excludes known login/auth walls."""
+    parsed_url = urllib.parse.urlparse(url)
+    
+    # Skip authentication-gated consoles or domains that aggressively block automated checks
+    if "console.cloud.google.com" in parsed_url.netloc or "youtube.com" in parsed_url.netloc or "youtu.be" in parsed_url.netloc:
+        return True
+        
+    try:
+        # Add User-Agent to prevent blockades
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        )
+        with urllib.request.urlopen(req, timeout=4.0) as response:
+            return response.status < 400
+    except urllib.error.HTTPError as e:
+        # 404 is definitively invalid, other codes (like 403/401) might be soft auth walls
+        if e.code == 404:
+            return False
+        return e.code < 500
+    except Exception as e:
+        print(f"Error validating URL {url}: {e}")
+        return False
+
 def verify_newsletter(client, content):
-    """Verifies the generated newsletter content for relevance and quality."""
+    """Verifies the generated newsletter content for relevance, quality, and active URLs."""
     prompt = f"""
     아래 생성된 'Google Cloud Networking Newsletter'의 내용을 검증해줘.
     
@@ -299,10 +381,11 @@ def verify_newsletter(client, content):
     {content}
     
     ## 검증 기준:
-    1. 모든 내용이 Google Cloud Networking 및 Security 범위에 속하는가? (예: GKE, Cloud Run, BigQuery 등 네트워킹과 무관한 순수 데이터베이스나 AI 모델 발표는 제외되어야 함)
+    1. 모든 내용이 Google Cloud Networking 및 Security, 혹은 AI 및 Agent 인프라 범위에 속하는가? (예: GKE, Cloud Run, BigQuery 등 네트워킹과 무관한 순수 데이터베이스나 AI 모델 발표는 제외되어야 함)
     2. AI가 생성한 느낌의 과장된 수사나 상투적인 인사말이 배제되었는가?
     3. "Google Cloud Networking 업데이트:"라는 문구로 시작하는가?
     4. 날짜가 2026년 최신 데이터인가?
+    5. '우리 팀은 이를 참고하여', '활용할 수 있습니다' 등의 권유형 코멘트가 완전히 배제되고 기술적 사실 중심의 종결형 어조로 작성되었는가?
     
     ## 응답 형식:
     - 통과 여부: PASS 또는 FAIL
@@ -311,7 +394,27 @@ def verify_newsletter(client, content):
     응답은 반드시 위 형식을 지켜줘.
     """
     try:
-        print("Verifying newsletter content with Gemini...")
+        # First, validate all Markdown links in the content
+        urls = re.findall(r'https?://[^\s)]+', content)
+        # Clean URLs from trailing characters like quotes or markdown symbols
+        cleaned_urls = []
+        for u in urls:
+            u_clean = u.rstrip("`*\"').,")
+            cleaned_urls.append(u_clean)
+            
+        unique_urls = list(set(cleaned_urls))
+        print(f"Extracted {len(unique_urls)} unique URLs for validation...")
+        
+        broken_urls = []
+        for url in unique_urls:
+            if not check_url_validity(url):
+                print(f"❌ URL validation failed for: {url}")
+                broken_urls.append(url)
+                
+        if broken_urls:
+            return False, f"다음 링크들이 존재하지 않거나 유효하지 않습니다(404 등): {', '.join(broken_urls)}"
+
+        print("All URLs passed validation. Verifying newsletter content with Gemini...")
         response = client.models.generate_content(
             model='gemini-3.1-pro-preview',
             contents=prompt,
@@ -341,17 +444,17 @@ def main():
         
         additional_resources = """
 - **White papers (백서)**:
-  * [Networking for AI inference model serving on GKE](https://cloud.google.com/files/networking-for-ai-inference-gke.pdf) (New must read)
-  * [Networking for AI inference model serving on all backends](https://cloud.google.com/files/networking-for-ai-inference-all.pdf) (New must read)
+  * [Networking for AI inference model serving on GKE](https://cloud.google.com/files/networking-for-ai-inference-gke.pdf)
+  * [Networking for AI inference model serving on all backends](https://cloud.google.com/files/networking-for-ai-inference-all.pdf)
 - **유튜브 데모 및 세션 (YouTube & NEXT 26)**:
-  * [[Demo] Autonomous ML Reliability - Data Center Network](https://youtube.com/watch?v=demo-autonomous-ml)
-  * [[Demo] High Resolution Network Telemetry: Data Center Network](https://youtube.com/watch?v=demo-telemetry)
-  * [Cloud NEXT 26 - Session talks library: Networking](https://console.cloud.google.com/next26/sessions?category=networking)
+  * [Demo] Autonomous ML Reliability - Data Center Network
+  * [Demo] High Resolution Network Telemetry: Data Center Network
+  * [Google Cloud NEXT 26 - Session library](https://cloud.withgoogle.com/next)
 - **추가 주요 블로그 소식 (Blogs)**:
-  * [Cloud DNS Response Policy Zones to Selectively Bypass Google API Subdomains](https://cloud.google.com/blog/products/networking/dns-response-policy-zones-bypass-google-api-subdomains)
-  * [[Public Preview] New configuration size quota and increased URL map size limits for Application Load Balancers](https://cloud.google.com/blog/products/networking/new-configuration-size-quota-and-increased-url-map-size-limits)
+  * [Cloud DNS Response Policy Zones to Selectively Bypass Google API Subdomains](https://cloud.google.com/blog/products/networking/dns-response-policy-zones-to-selectively-bypass-google-api-subdomains)
+  * [[Public Preview] New configuration size quota and increased URL map size limits for Application Load Balancers](https://cloud.google.com/blog/products/networking/announcing-new-configuration-size-quota-and-increased-url-map-size-limits-for-application-load-balancers)
 - **실습 랩 (Hands-on Labs)**:
-  * Antigravity CLI on GCE with a Private Service Connect endpoint
+  * Private Service Connect 엔드포인트를 활용하여 GCE 상에서 Antigravity CLI 가동하기 (Codelab 실습 랩)
 """
 
         # 1. Fetch BigQuery Release Notes
@@ -400,6 +503,9 @@ def main():
                     newsletter_content = f"⚠️ [VERIFICATION FAILED: {reason}]\n\n" + newsletter_content
 
         # 4. Output processing
+        print("Running link validation and cleanup on generated content...")
+        newsletter_content = clean_markdown_links(newsletter_content)
+
         if GCS_BUCKET_NAME:
             storage_client = storage.Client(project=PROJECT_ID)
             bucket = storage_client.bucket(GCS_BUCKET_NAME)
