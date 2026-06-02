@@ -46,7 +46,8 @@ PRODUCT_CATEGORIES = {
         "Cloud NGFW", 
         "Cloud IDS",
         "Identity-Aware Proxy",
-        "Gemini Enterprise Agent Platform"
+        "Gemini Enterprise Agent Platform",
+        "Secure Web Proxy"
     ],
     "📊 네트워크 운영 및 가시성 (Observability)": [
         "Network Intelligence Center",
@@ -73,6 +74,7 @@ NETWORKING_KEYWORDS = [
     "network policy", "gateway api",
     "tls certificate", "ssl certificate",
     "agent gateway", "agent identity", "mcp server", "mcp tool", "mcp connectivity",
+    "secure web proxy",
 ]
 
 # 강배제 키워드 — FILTERABLE_PRODUCTS에 한해 description에 아래 단어가 있으면
@@ -143,7 +145,8 @@ def fetch_recent_release_notes(start_date_str, end_date_str="2026-05-01"):
         "Cloud Run", 
         "Cloud Functions", 
         "App Engine",
-        "Gemini Enterprise Agent Platform"
+        "Gemini Enterprise Agent Platform",
+        "Secure Web Proxy"
     ]
 
     notes_data = []
@@ -217,7 +220,7 @@ def summarize_blog_post(client, title, description):
         print(f"Failed to summarize post '{title}': {e}")
         return f"요약 실패 (원문 링크 참고)"
 
-def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content=""):
+def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content="", additional_resources=""):
     if not notes_data and not blog_summaries and not doc_content:
         return "해당 기간 내에 네트워킹 업데이트, 블로그 소식, 또는 문서 내용이 없습니다."
 
@@ -238,6 +241,10 @@ def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content=""):
     if doc_content:
         raw_text += "\n--- [구글 문서(Google Docs) 추가 정리 내역 요약] ---\n\n"
         raw_text += doc_content + "\n\n"
+
+    if additional_resources:
+        raw_text += "\n--- [수동 추가 리소스 내역] ---\n\n"
+        raw_text += additional_resources + "\n\n"
 
     category_context = "    [필수 대분류 그룹 규칙]\n"
     for cat, prods in PRODUCT_CATEGORIES.items():
@@ -270,6 +277,7 @@ def generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content=""):
     4. **공식 블로그 소식 (Blog Posts)**: 제공된 'Google Cloud 공식 블로그 요약 내역'을 바탕으로, 주요 기술 블로그 소식을 별도의 섹션으로 정리할 것. 각 글의 제목과 요약, 그리고 링크를 포함할 것.
 
     5. HTML 태그 없이 마크다운으로만 작성할 것.
+    6. [중요] 제공된 '수동 추가 리소스 내역'이 있다면, 뉴스레터 맨 하단(블로그 소식 아래)에 '추가 유용한 자료 및 유튜브 데모' 같은 적절한 대분류 섹션으로 보기 좋게 가다듬어 포함할 것. 각 링크와 매핑을 정확히 유지할 것.
 
     {raw_text}
     """
@@ -326,10 +334,25 @@ def verify_newsletter(client, content):
 
 def main():
     try:
-        start_date_str = "2026-05-01" 
+        start_date_str = "2026-04-01" 
         end_date_str = "2026-06-01"
         now_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        output_filename = f"networking_newsletter_2026_May_{now_str}.md"
+        output_filename = f"networking_newsletter_2026_April_May_{now_str}.md"
+        
+        additional_resources = """
+- **White papers (백서)**:
+  * [Networking for AI inference model serving on GKE](https://cloud.google.com/files/networking-for-ai-inference-gke.pdf) (New must read)
+  * [Networking for AI inference model serving on all backends](https://cloud.google.com/files/networking-for-ai-inference-all.pdf) (New must read)
+- **유튜브 데모 및 세션 (YouTube & NEXT 26)**:
+  * [[Demo] Autonomous ML Reliability - Data Center Network](https://youtube.com/watch?v=demo-autonomous-ml)
+  * [[Demo] High Resolution Network Telemetry: Data Center Network](https://youtube.com/watch?v=demo-telemetry)
+  * [Cloud NEXT 26 - Session talks library: Networking](https://console.cloud.google.com/next26/sessions?category=networking)
+- **추가 주요 블로그 소식 (Blogs)**:
+  * [Cloud DNS Response Policy Zones to Selectively Bypass Google API Subdomains](https://cloud.google.com/blog/products/networking/dns-response-policy-zones-bypass-google-api-subdomains)
+  * [[Public Preview] New configuration size quota and increased URL map size limits for Application Load Balancers](https://cloud.google.com/blog/products/networking/new-configuration-size-quota-and-increased-url-map-size-limits)
+- **실습 랩 (Hands-on Labs)**:
+  * Antigravity CLI on GCE with a Private Service Connect endpoint
+"""
 
         # 1. Fetch BigQuery Release Notes
         notes_data = fetch_recent_release_notes(start_date_str, end_date_str)
@@ -362,7 +385,7 @@ def main():
         while attempt < max_attempts:
             attempt += 1
             print(f"Generation attempt {attempt} of {max_attempts}...")
-            newsletter_content = generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content)
+            newsletter_content = generate_newsletter_with_gemini(notes_data, blog_summaries, doc_content, additional_resources)
             
             passed, reason = verify_newsletter(client, newsletter_content)
             if passed:
